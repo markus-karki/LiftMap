@@ -34,7 +34,7 @@ class LiftMap:
 
     #TODO
     def getLiftProb(self, start_point=None,end_point=None):
-        return numpy.array([0.25, 0.75]),numpy.array([3.0, 0.0])
+        return numpy.array([0.1, 0.9]),numpy.array([(4+1.15)*.508/kts_to_ms, 0.0])
 
 class Chart:
     #TODO
@@ -43,7 +43,7 @@ class Chart:
         self.polar = polar
         self.liftMap = lift_map
         
-        self.heightBand = height_band
+        self.heightBand = height_band / ft_to_m
                 
         self.target = target
         self.nCircles=n_circles
@@ -51,7 +51,7 @@ class Chart:
 
         self.hGridSize = 500
         self.hStep = height_band/ft_to_m/self.hGridSize
-        self.hGrid=(numpy.arange(0,height_band/ft_to_m,self.hStep)).T.reshape([-1,1])
+        self.hGrid=numpy.arange(0,height_band/ft_to_m,self.hStep)
         
         self.liftGridSize = 2
 
@@ -78,7 +78,7 @@ class Chart:
         vwin=(self.liftMap.liftStrength/kts_to_ms-self.polar.minSink)/(self.liftMap.liftStrength/kts_to_ms-self.polar.minSink+sdotwin)*vdotwin                            
 
         # Winner's handicapped speed in kts 
-        self.vWin=vwin / self.hCap
+        self.vWin = 30 / self.hCap #TEMP VEFIFICATION vwin / self.hCap
         self.tWin = self.xmax / self.vWin                        #  Winner's time -- used to evaluate landouts
  
         self.dataStructure = DataStructure(self)
@@ -128,7 +128,7 @@ class DataStructure:
         plt.plot(data,hgrid)
 
         plt.subplot(2,3,5)
-        data = node.expectedOutlandPoints
+        data = node.expectedFinishProb
         plt.plot(data,hgrid)
 
         plt.subplot(2,3,6)
@@ -186,7 +186,7 @@ class DataStructure:
 class Circle:
     def __init__(self,index, chart):
         self.index = index
-        self.distanceFromTarget = chart.firstStep * nm_to_km + (index) * (chart.circleIntervals)
+        self.distanceFromTarget = chart.firstStep + (index) * (chart.circleIntervals)
      
         if index==0: 
             self.nNodes = 1
@@ -209,7 +209,7 @@ class Node:
         self.expectedTimeToGo = numpy.zeros([chart.hGridSize]) #vector
         self.expectedFinishProb = numpy.zeros([chart.hGridSize])
         self.expectedOutlandPoints = numpy.zeros([chart.hGridSize])
-        self.wtv = - numpy.ones([chart.hGridSize]) / chart.tWin # wt (h,x) if no landout
+        self.wtv = numpy.zeros([chart.hGridSize]) # wt (h,x) 
         self.whv = numpy.zeros([chart.hGridSize]) # wh (h,x)
         self.mcCready = numpy.zeros([chart.hGridSize]) #vector
 
@@ -294,21 +294,21 @@ class FinishNode(Node):
         # simply fly home, no lift or sink */
         # -------------------------------- */
         # Initialize grids */
-        w=numpy.zeros([self.chart.hGridSize,1])           # Speed at finish
-        wh=numpy.zeros([self.chart.hGridSize,1])          # wh (h,x)
-        wt=- numpy.ones([self.chart.hGridSize,1]) / self.chart.tWin  # wt (h,x) if no landout
+        w=numpy.zeros([self.chart.hGridSize])           # Speed at finish
+        wh=numpy.zeros([self.chart.hGridSize])          # wh (h,x)
+        wt=- numpy.ones([self.chart.hGridSize]) / self.chart.tWin  # wt (h,x) if no landout
         wt[0]=0                                 # at zero, you've landed out
         w[0]=self.chart.alpha*(self.chart.xmax - self.chart.firstStep) / self.chart.xmax      # landout rules, assuming winning speedtonow
         wh[0]=numpy.NaN                         # Code for not known yet                       # Code for not known yet
         hi = 1
         while hi < self.chart.hGridSize:
-            h = self.chart.hGrid[hi,0]
+            h = self.chart.hGrid[hi]
             v = self.chart.polar.getSpeed(0, 6000*self.chart.firstStep / h)          # speed to just exhaust altitude in this lift
         
             if v >= self.chart.polar.minSinkSpeed:                        # Can make it home
         
                 w[hi] = self.chart.xmax / (self.chart.tWin*(self.chart.xmax - self.chart.firstStep) / self.chart.xmax + self.chart.firstStep / v) / self.chart.vWin    # Speed at finish, assuming you've flown at winning speed so far
-                self.whv[hi]= 1 / self.chart.tWin / (self.chart.polar.getMcCready(v))
+                wh[hi]= 1 / self.chart.tWin / (self.chart.polar.getMcCready(v))
                 self.expectedTimeToGo[hi] = self.chart.firstStep / v * 3600
                 self.expectedFinishProb[hi] = 1
             else:
@@ -316,9 +316,9 @@ class FinishNode(Node):
                 self.expectedFinishProb[hi]=0
 
                 if v == - 1:                # Can't make it home
-                    self.wtv[hi]=0
+                    wt[hi]=0
                     w[hi] = numpy.nan
-                    self.whv[hi] = numpy.nan
+                    wh[hi] = numpy.nan
         
                 else:
                     print('error: speed {:.0f} reported to get home'.format(v))
@@ -332,23 +332,23 @@ class FinishNode(Node):
         # Now i is the smallest index of a valid height
         
         while i <= self.chart.hGridSize:
-            testwh = 6000*(w[i] - w[0]) / (self.chart.hGrid[i,0] - self.chart.hGrid[0,0])   # Guess at wh in landout region
+            testwh = 6000*(w[i] - w[0]) / (self.chart.hGrid[i] - self.chart.hGrid[0])   # Guess at wh in landout region
             if testwh > wh[i]:                                  # n't want a huge peak in wh
                 break                                           # (infinite value of an inch)
             else:                                               # hence use linear w until we reach a 
                 i = i + 1                                         # reasonable wh from the fly home rule
         
-        self.whv[0:i] = testwh*numpy.ones([i])
-        w[0:(i )] = w[0] + ((self.chart.hGrid[0:(i ),:] - self.chart.hGrid[0,:]) / (self.chart.hGrid[i,:] - self.chart.hGrid[0,:]))*(w[i] - w[0])
+        wh[0:i] = testwh*numpy.ones([i])
+        w[0:(i )] = w[0] + ((self.chart.hGrid[0:(i )] - self.chart.hGrid[0]) / (self.chart.hGrid[i] - self.chart.hGrid[0]))*(w[i] - w[0])
         
         # take average over lift values */
         #whv = numpy.copy(wh) TODO: remove
         #wtv = numpy.copy(wt) TODO: remove
-        self.mcCready = numpy.nan_to_num( - self.wtv / self.whv )
+        self.mcCready = numpy.nan_to_num( - wt / wh )
         
         # mix up h 
-        self.whv=self.mixer(self.whv,self.chart.hGrid,self.chart.mix)						# adds subtracts random amount to h -- smooths wh, wt over h
-        self.wtv=self.mixer(self.wtv,self.chart.hGrid,self.chart.mix)
+        self.whv=self.mixer(wh,self.chart.hGrid,self.chart.mix)						# adds subtracts random amount to h -- smooths wh, wt over h
+        self.wtv=self.mixer(wt,self.chart.hGrid,self.chart.mix)
         #lamfin=lamv*numpy.ones([1,int(fstp)]) TODO: remove
 
         # we're done! we have wh and wt one mile out. */
@@ -587,11 +587,18 @@ class Point:
 class GlidePolar:
     def __init__(self):
         #Dry LS7 33.9 km/m2
-        self.minSink=1.22
-        self.minSinkSpeed=46
-        self.highSpeed=92
-        self.sinkForHighSpeed=3.88
-        self.a=numpy.dot(2,(self.highSpeed - self.minSink)) / (self.highSpeed - self.minSinkSpeed) ** 2
+        #self.minSink=1.22
+        #self.minSinkSpeed=46
+        #self.highSpeed=92
+        #self.sinkForHighSpeed=3.88
+        
+        #Dry Discus
+        self.minSink=1.15
+        self.minSinkSpeed=42.0
+        self.highSpeed=80.0
+        self.sinkForHighSpeed=3.0     
+        
+        self.a=numpy.dot(2,(self.sinkForHighSpeed - self.minSink)) / (self.highSpeed - self.minSinkSpeed) ** 2
         self.ldmax=self.getGlideRatio(numpy.array([0]),numpy.array([0]))
 
     #old name: vofg
@@ -677,7 +684,7 @@ def main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_interval
         charts.append(Chart(lift_map,height_band,circle_intervals,n_circles,polar, target))
     
     #Create maps
-    charts[0].dataStructure.plotCurve(0,0)
+    charts[0].dataStructure.plotCurve(2,0)
 
 # PARSE ARGUMENTS
 if __name__ == '__main__':
@@ -689,14 +696,14 @@ if __name__ == '__main__':
     #Lift strenght, m/s
     lift_strenght = 3.0
     #Height band, cloudbase, m
-    height_band = 1500
+    height_band = 1524 #1500
     #todo: wind
 
     #Turnpoints
     turnpoints=[1] # EFRY
     #Chart parameters, km
     circle_intervals = 1.852
-    n_circles = 1
+    n_circles = 3
     #ADD node_interval
 
     cProfile.run('main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_intervals,n_circles,turnpoints)', 'run_stats')
