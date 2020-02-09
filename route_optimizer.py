@@ -14,8 +14,9 @@ import matplotlib.pyplot as plt
 #from math import asin, acos, sqrt, sin, cos, pi
 
 # DEFINE GLOBAL CONSTANTS
-kts_to_kmh = numpy.dot(numpy.dot(6000,12),2.54) / 100 / 1000
-kts_to_ms = numpy.dot(kts_to_kmh,1000) / 3600
+nm_to_feet = 6000
+kts_to_kmh = (nm_to_feet*12*2.54) / 100 / 1000
+kts_to_ms = (kts_to_kmh*1000) / 3600
 nm_to_km = 1.852
 ft_to_m = 0.3048
 
@@ -111,42 +112,46 @@ class DataStructure:
         node = self.circles[circle_index].nodes[node_index]
         hgrid = node.chart.hGrid
         
-        plt.subplot(2,3,1)
-        data = node.mcCready
-        plt.plot(data,hgrid)
+        fig, ((ax0,ax1,ax2),(ax3,ax4,ax5)) = plt.subplots(nrows=2,ncols=3,sharey=True)
 
-        plt.subplot(2,3,2)
-        data = node.optimalDirection
-        plt.plot(data,hgrid)
+        ax0.plot(node.mcCready,hgrid)
+        ax0.set_ylabel('Altitude (ft)')
+        ax0.set_xlabel("McCready, kts")
+        ax0.grid(True)
 
-        plt.subplot(2,3,3)
-        data = node.expectedPoints
-        plt.plot(data,hgrid)
+        ax1.plot(node.optimalDirection,hgrid)
+        ax1.set_xlabel("Optimal direction, rad")
+        ax1.grid(True)
 
-        plt.subplot(2,3,4)
-        data = node.expectedTimeToGo
-        plt.plot(data,hgrid)
+        ax2.plot(node.expectedPoints,hgrid)
+        ax2.set_xlabel("Expected points")
+        ax2.grid(True)
 
-        plt.subplot(2,3,5)
-        data = node.expectedFinishProb
-        plt.plot(data,hgrid)
+        ax3.plot(node.expectedTimeToGo,hgrid)
+        ax3.set_xlabel("Expected time to finish, s")
+        ax3.set_ylabel('Altitude (ft)')
+        ax3.grid(True)
 
-        plt.subplot(2,3,6)
-        data = node.expectedOutlandPoints
-        plt.plot(data,hgrid)
+        ax4.plot(node.expectedFinishProb,hgrid)
+        ax4.set_xlabel("Probability to finish")
+        ax4.grid(True)
 
+        ax5.plot(node.expectedOutlandPoints,hgrid)
+        ax5.set_xlabel("Expected distance points")
+        ax5.grid(True)
+        
+        if isinstance(node,FinishNode):
+            fig.suptitle("At finish line",y=0.99)
+        else:
+            fig.suptitle("{:.1f} NM {:.1f} rad".format(self.circles[circle_index].distanceFromTarget,node.radialFromTarget),y=0.99)
+        plt.tight_layout()
         plt.show()
-        #fig, ax = plt.subplot(3,2,1)
-        #ax.plot(lamfin_discus[hgrid[hgrid >= minclimb],numpy.array([8,16,54,150])] / 2,hgrid[hgrid >= minclimb] / 3)
-        #ax.plot(array ,hgrid)
-        #ax.legend(['10 nm','20 nm','100 nm','150 nm'])
-    # newmc.m:695
+ 
         #ax.plot(mcvals / 2,((g2(numpy.array([0]),mcvals)*numpy.array([10]))*6000) / 3)
         #ax.grid(True)
         #set(gca,'Ytick',numpy.concatenate([0,500,1000,1500,2000]))
         #ax.set_xlabel('MacCready (kts)')
         #ax.set_ylabel('Altitude (ft)')
-        #ax.set_ylabel(numpy.concatenate(['H',char(246),'he (m)']),'Interpreter','none')
         #ax.set_xlim(0,5)
         #ax.set_ylim(0,6000)
     
@@ -303,7 +308,7 @@ class FinishNode(Node):
         hi = 1
         while hi < self.chart.hGridSize:
             h = self.chart.hGrid[hi]
-            v = self.chart.polar.getSpeed(0, 6000*self.chart.firstStep / h)          # speed to just exhaust altitude in this lift
+            v = self.chart.polar.getSpeed(0, nm_to_feet*self.chart.firstStep / h)          # speed to just exhaust altitude in this lift
         
             if v >= self.chart.polar.minSinkSpeed:                        # Can make it home
         
@@ -312,7 +317,7 @@ class FinishNode(Node):
                 self.expectedTimeToGo[hi] = self.chart.firstStep / v * 3600
                 self.expectedFinishProb[hi] = 1
             else:
-                self.expectedOutlandPoints[hi]=(self.chart.routeDist - self.chart.firstStep + h/6000*self.chart.polar.ldmax) / self.chart.routeDist * self.chart.alpha
+                self.expectedOutlandPoints[hi]=(self.chart.routeDist - self.chart.firstStep + h/nm_to_feet*self.chart.polar.ldmax) / self.chart.routeDist * self.chart.alpha
                 self.expectedFinishProb[hi]=0
 
                 if v == - 1:                # Can't make it home
@@ -332,7 +337,7 @@ class FinishNode(Node):
         # Now i is the smallest index of a valid height
         
         while i <= self.chart.hGridSize:
-            testwh = 6000*(w[i] - w[0]) / (self.chart.hGrid[i] - self.chart.hGrid[0])   # Guess at wh in landout region
+            testwh = nm_to_feet*(w[i] - w[0]) / (self.chart.hGrid[i] - self.chart.hGrid[0])   # Guess at wh in landout region
             if testwh > wh[i]:                                  # n't want a huge peak in wh
                 break                                           # (infinite value of an inch)
             else:                                               # hence use linear w until we reach a 
@@ -438,7 +443,7 @@ class AuxNode(Node):
                 # for each altitude and lift, we have the mcready, so we can work
                 # back and find the altitude at which you leave to get here */
                 glide_angle = self.chart.polar.getInverseGlideRatio(numpy.array([l*self.chart.porp]),nextNode.mcCready[hi])
-                holdg[hi] = self.chart.hGrid[hi] + glide_angle * distanceToNextNode*6000
+                holdg[hi] = self.chart.hGrid[hi] + glide_angle * distanceToNextNode*nm_to_feet
                 
                 # save also p finish, t to go and expected outlanding points
                 hold_p_finish[hi] = nextNode.expectedFinishProb[hi]
@@ -456,7 +461,7 @@ class AuxNode(Node):
                     whl[hi,li] = self.chart.alpha * self.chart.polar.ldmax / self.chart.routeDist  # Validate!!
                     wtl[hi,li] = 0
                     
-                    results_outlanding_points[hi,li] = (self.chart.routeDist-self.distanceFromTarget+h/6000*self.chart.polar.ldmax)/self.chart.routeDist*self.chart.alpha
+                    results_outlanding_points[hi,li] = (self.chart.routeDist-self.distanceFromTarget+h/nm_to_feet*self.chart.polar.ldmax)/self.chart.routeDist*self.chart.alpha
                     results_p_finish[hi,li] = 0
                     results_t_to_go[hi,li] = 0 
                 else:
@@ -684,7 +689,7 @@ def main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_interval
         charts.append(Chart(lift_map,height_band,circle_intervals,n_circles,polar, target))
     
     #Create maps
-    charts[0].dataStructure.plotCurve(2,0)
+    charts[0].dataStructure.plotCurve(0,0)
 
 # PARSE ARGUMENTS
 if __name__ == '__main__':
@@ -703,7 +708,7 @@ if __name__ == '__main__':
     turnpoints=[1] # EFRY
     #Chart parameters, km
     circle_intervals = 1.852
-    n_circles = 3
+    n_circles = 1
     #ADD node_interval
 
     cProfile.run('main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_intervals,n_circles,turnpoints)', 'run_stats')
