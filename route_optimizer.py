@@ -123,7 +123,7 @@ class DataStructure:
         ax1.set_xlabel("Optimal direction, rad")
         ax1.grid(True)
 
-        ax2.plot(node.expectedPoints,hgrid)
+        ax2.plot(node.expectedPoints*1000,hgrid)
         ax2.set_xlabel("Expected points")
         ax2.grid(True)
 
@@ -132,14 +132,14 @@ class DataStructure:
         ax3.set_ylabel('Altitude (ft)')
         ax3.grid(True)
 
-        ax4.plot(node.expectedFinishProb,hgrid)
-        ax4.set_xlabel("Probability to finish")
+        ax4.plot(node.expectedFinishProb*100,hgrid)
+        ax4.set_xlabel("Probability to finish, %")
         ax4.grid(True)
 
-        ax5.plot(node.expectedOutlandPoints,hgrid)
+        ax5.plot(node.expectedOutlandPoints*1000,hgrid)
         ax5.set_xlabel("Expected distance points")
         ax5.grid(True)
-        
+
         if isinstance(node,FinishNode):
             fig.suptitle("At finish line",y=0.99)
         else:
@@ -147,14 +147,6 @@ class DataStructure:
         plt.tight_layout()
         plt.show()
  
-        #ax.plot(mcvals / 2,((g2(numpy.array([0]),mcvals)*numpy.array([10]))*6000) / 3)
-        #ax.grid(True)
-        #set(gca,'Ytick',numpy.concatenate([0,500,1000,1500,2000]))
-        #ax.set_xlabel('MacCready (kts)')
-        #ax.set_ylabel('Altitude (ft)')
-        #ax.set_xlim(0,5)
-        #ax.set_ylim(0,6000)
-    
     def plotArea(self, altitude):
         # Define area
         n_radials = 20
@@ -302,6 +294,11 @@ class FinishNode(Node):
         w=numpy.zeros([self.chart.hGridSize])           # Speed at finish
         wh=numpy.zeros([self.chart.hGridSize])          # wh (h,x)
         wt=- numpy.ones([self.chart.hGridSize]) / self.chart.tWin  # wt (h,x) if no landout
+        self.expectedOutlandPoints[:] = self.chart.alpha
+        self.expectedPoints[:] = self.chart.alpha 
+        self.expectedOutlandPoints[0] = self.chart.alpha*(self.chart.xmax-self.chart.firstStep)/self.chart.xmax
+        self.expectedPoints[0] = self.chart.alpha*(self.chart.xmax-self.chart.firstStep)/self.chart.xmax
+
         wt[0]=0                                 # at zero, you've landed out
         w[0]=self.chart.alpha*(self.chart.xmax - self.chart.firstStep) / self.chart.xmax      # landout rules, assuming winning speedtonow
         wh[0]=numpy.NaN                         # Code for not known yet                       # Code for not known yet
@@ -316,8 +313,10 @@ class FinishNode(Node):
                 wh[hi]= 1 / self.chart.tWin / (self.chart.polar.getMcCready(v))
                 self.expectedTimeToGo[hi] = self.chart.firstStep / v * 3600
                 self.expectedFinishProb[hi] = 1
+                self.expectedPoints[hi] += (1-self.chart.alpha)*(self.chart.tWin*3600)/((self.chart.xmax-self.chart.firstStep)/self.chart.vWin*3600-self.chart.firstStep/v*3600)
             else:
-                self.expectedOutlandPoints[hi]=(self.chart.routeDist - self.chart.firstStep + h/nm_to_feet*self.chart.polar.ldmax) / self.chart.routeDist * self.chart.alpha
+                self.expectedOutlandPoints[hi]+=( - self.chart.firstStep + h/nm_to_feet*self.chart.polar.ldmax) / self.chart.routeDist * self.chart.alpha
+                self.expectedPoints[hi] = self.expectedOutlandPoints[hi]
                 self.expectedFinishProb[hi]=0
 
                 if v == - 1:                # Can't make it home
