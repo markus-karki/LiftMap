@@ -103,7 +103,6 @@ class Chart:
                 circle.nodes[i].calculateNode()         
             print(circle.index + 1, "circle(s) completed!")
     
-
 class DataStructure:
     def __init__(self,chart):
         self.circles = [Circle(i,chart) for i in range(n_circles)] #list
@@ -178,7 +177,6 @@ class DataStructure:
                     data.append()
 
         plt.barbs
-
 
 class Circle:
     def __init__(self,index, chart):
@@ -281,12 +279,13 @@ class Node:
                 yh = ygrid[indxh]
                 y=((yh - yl) / (xh - xl))*(x - xl) + yl
         return y
+
 class FinishNode(Node):
     def __init__(self,circle,chart):
         super().__init__(circle, chart)
     
     def calculateNode(self):
-    # -------------------------------- */
+        # -------------------------------- */
         # Find values one mile out         */
         # simply fly home, no lift or sink */
         # -------------------------------- */
@@ -388,11 +387,8 @@ class AuxNode(Node):
     def __init__(self,circle,chart, radialFromTarget, auxNodeDirection):
         super().__init__(circle, chart)
         self.radialFromTarget = radialFromTarget
-        
-
 
     def calculateNode(self, auxNodeDirection):
-        
         nextNode_circle_index = self.parentCircle.index - 1
         target_circle = self.chart.dataStructure.circles[nextNode_circle_index]
  
@@ -405,11 +401,8 @@ class AuxNode(Node):
             target_radial = (self.radialFromTarget - beta) % math.pi 
             distanceToNextNode = target_circle.distanceFromTarget * math.sin(beta) / math.sin(auxNodeDirection)
 
-
         nextNode = InterpolationNode(target_circle, self.chart, target_radial)
         nextNode.calculateNode()
-
-        
 
         # now iterate back  */
         # ----------------- */
@@ -460,7 +453,7 @@ class AuxNode(Node):
                     whl[hi,li] = self.chart.alpha * self.chart.polar.ldmax / self.chart.routeDist  # Validate!!
                     wtl[hi,li] = 0
                     
-                    results_outlanding_points[hi,li] = (self.chart.routeDist-self.distanceFromTarget+h/nm_to_feet*self.chart.polar.ldmax)/self.chart.routeDist*self.chart.alpha
+                    results_outlanding_points[hi,li] = (self.chart.routeDist-self.distanceFromTarget+h/nm_to_feet*self.chart.polar.ldmax*math.cos(auxNodeDirection))/self.chart.routeDist*self.chart.alpha
                     results_p_finish[hi,li] = 0
                     results_t_to_go[hi,li] = 0 
                 else:
@@ -514,9 +507,10 @@ class AuxNode(Node):
         self.mcCready = - self.wtv / self.whv
 
         self.expectedFinishProb = numpy.sum(numpy.multiply(results_p_finish,lprb.reshape([1,-1])),axis=1) 
-        self.expectedTimeToGo = numpy.nan_to_num(numpy.divide(numpy.sum(numpy.multiply(numpy.multiply(results_t_to_go,lprb.reshape([1,-1])),results_p_finish),axis=1),numpy.sum(numpy.multiply(lprb.reshape([1,-1]),results_p_finish)))) 
+        self.expectedTimeToGo = numpy.nan_to_num(numpy.divide(numpy.sum(numpy.multiply(numpy.multiply(results_t_to_go,lprb.reshape([1,-1])),results_p_finish),axis=1),numpy.sum(numpy.multiply(lprb.reshape([1,-1]),results_p_finish),axis=1))) 
         self.expectedOutlandPoints = numpy.sum(numpy.multiply(results_outlanding_points,lprb.reshape([1,-1])),axis=1)
-        self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * numpy.minimum(self.chart.routeDist/numpy.matmul(results_t_to_go,lprb)/3600/self.chart.vWin,numpy.ones([self.chart.hGridSize]))
+        #self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * numpy.minimum(self.chart.routeDist/numpy.matmul(results_t_to_go,lprb)/3600/self.chart.vWin,numpy.ones([self.chart.hGridSize]))
+        self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * (self.chart.tWin*3600)/(numpy.matmul(results_t_to_go,lprb)+((self.chart.xmax-self.distanceFromTarget)/self.chart.vWin*3600))
 
         #lamfin=numpy.concatenate((lamfin,lamv.reshape([-1,1])),axis=1)
 
@@ -688,7 +682,7 @@ def main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_interval
         charts.append(Chart(lift_map,height_band,circle_intervals,n_circles,polar, target))
     
     #Create maps
-    charts[0].dataStructure.plotCurve(0,0)
+    charts[0].dataStructure.plotCurve(1,0)
 
 # PARSE ARGUMENTS
 if __name__ == '__main__':
@@ -707,7 +701,7 @@ if __name__ == '__main__':
     turnpoints=[1] # EFRY
     #Chart parameters, km
     circle_intervals = 1.852
-    n_circles = 1
+    n_circles = 2
     #ADD node_interval
 
     cProfile.run('main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_intervals,n_circles,turnpoints)', 'run_stats')
