@@ -521,9 +521,12 @@ class AuxNode(Node):
         self.expectedOutlandPoints = numpy.sum(numpy.multiply(results_outlanding_points,lprb.reshape([1,-1])),axis=1)
         #self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * numpy.minimum(self.chart.routeDist/numpy.matmul(results_t_to_go,lprb)/3600/self.chart.vWin,numpy.ones([self.chart.hGridSize]))
         self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * (self.chart.tWin*3600)/(numpy.matmul(results_t_to_go,lprb)+((self.chart.xmax-self.distanceFromTarget)/self.chart.vWin*3600))
+<<<<<<< HEAD
 
         self.expectedOutlandPoints[0] = (self.chart.routeDist-self.distanceFromTarget)/self.chart.routeDist*self.chart.alpha
         self.expectedPoints[0] = (self.chart.routeDist-self.distanceFromTarget)/self.chart.routeDist*self.chart.alpha
+=======
+>>>>>>> ce47d024fed0c0da9aa255ab44bc58cc2e7e7cb3
 
         #lamfin=numpy.concatenate((lamfin,lamv.reshape([-1,1])),axis=1)
 
