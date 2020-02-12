@@ -170,12 +170,21 @@ class DataStructure:
         # 
 
     def plotChart(self):
+        chart = self.circles[0].nodes[0].chart
+        n_altitudes = 6
+        x0 = chart.target.xTarget
+        y0 = chart.target.yTarget
         data = [] #x, y, dir x, dir y
-        for alt in altitudes:
-            for i in circles:
-                for j in nodes:
-                    data.append()
-
+        for alt in range(n_altitudes):
+            alt_index = (alt+1)*(chart.hGridSize/n_altitudes) - 1
+            for i in self.circles:
+                for j in i.nodes:
+                    x = 
+                    y =
+                    dir_x =
+                    dir_y =
+                    data = numpy.vstack([data,[x, y, dir_x, dir_y]])
+            
         plt.barbs
 
 class Circle:
