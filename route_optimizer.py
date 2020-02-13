@@ -35,7 +35,59 @@ class LiftMap:
 
     #TODO
     def getLiftProb(self, start_point=None,end_point=None):
-        return numpy.array([0.1, 0.9]),numpy.array([(4+1.15)*.508/kts_to_ms, 0.0])
+        width = 500
+        
+        x_min = min(start_point.x, end_point.x) - width
+        x_max = max(start_point.x, end_point.x) + width
+        y_min = min(start_point.y, end_point.y) - width
+        y_max = max(start_point.y, end_point.y) + width
+
+        c = numpy.zeros([4,2])
+
+        if (start_point.x > end_point.x):
+            c[0,:] = [start_point.y , start_point.x + width]
+            c[1,:] = [end_point.y , end_point.x - width]
+        else:
+            c[0,:] = [end_point.y, end_point.x + width]
+            c[1,:] = [start_point.y, start_point.x - width]
+
+        if (start_point.y > end_point.y):
+            c[2,:] = [start_point.y + width , start_point.x]
+            c[3,:] = [end_point.y - width , end_point.x]
+        else:
+            c[2,:] = [end_point.y + width , end_point.x]
+            c[3,:] = [start_point.y - width , start_point.x]
+
+        c = numpy.add(c, numpy.array([-y_min, -x_min]).T)
+        c = numpy.divide(c, [self.yGridSize, self.xGridSize])
+
+        if x_min < self.lonMin or x_max > self.lonMax or y_min < self.latMin or y_max > self.latMax:
+            return numpy.array([0.5, 0.5]),numpy.array([0.0, 0.0])
+        
+        sub_map = self.probMatrix[int((y_min-self.latMin)/self.yGridSize):int((y_max-self.latMin)/self.yGridSize),int((x_min-self.lonMin)/self.xGridSize):int((x_max-self.lonMin)/self.xGridSize)]
+
+        filter = numpy.ones(sub_map.shape)
+        grid = numpy.indices(sub_map.shape)
+        # Test 1
+        k = (c[0,0]-c[2,0])/(c[0,1]-c[2,1])
+        filter = numpy.multiply(filter, ((grid[1,:,:]-c[2,1]) * k + c[2,0]) > numpy.flipud(grid[0,:,:]))
+        
+        # Test 2
+        k = (c[2,0]-c[1,0])/(c[2,1]-c[1,1])
+        filter = numpy.multiply(filter, ((grid[1,:,:]-c[1,1]) * k + c[1,0]) > numpy.flipud(grid[0,:,:]))
+        
+        # Test 3
+        k = (c[3,0]-c[1,0])/(c[3,1]-c[1,1])
+        filter = numpy.multiply(filter, ((grid[1,:,:]-c[1,1]) * k + c[1,0]) < numpy.flipud(grid[0,:,:]))
+
+        # Test 4
+        k = (c[0,0]-c[3,0])/(c[0,1]-c[3,1])
+        filter = numpy.multiply(filter, ((grid[1,:,:]-c[3,1]) * k + c[3,0]) < numpy.flipud(grid[0,:,:]))
+
+        lift_prob = numpy.sum(numpy.multiply(filter, sub_map))/numpy.sum(filter)
+
+        return numpy.array([lift_prob, 1-lift_prob]),numpy.array([self.liftStrength, 0.0])
+        #return numpy.array([0.1, 0.9]),numpy.array([(4+1.15)*.508/kts_to_ms, 0.0])
 
 class Chart:
     #TODO
@@ -177,7 +229,7 @@ class DataStructure:
         x0 = chart.target.xTarget
         y0 = chart.target.yTarget
 
-        fig, ax = plt.subplots(nrows=n_rows,ncols=n_cols,sharey=True)        
+        fig, ax = plt.subplots(nrows=n_rows,ncols=n_cols,sharey=True, sharex=True)        
         
         for alt in range(n_altitudes):
             alt_index = int((alt+1)*(chart.hGridSize/n_altitudes) - 1)
@@ -185,24 +237,37 @@ class DataStructure:
             y = numpy.array([y0])
             dir_x = numpy.array([0])
             dir_y = numpy.array([0])
-            
+            mc = numpy.array([min(19,self.circles[0].nodes[0].mcCready[alt_index])])
+
             for i in self.circles[1:]:
           
 
                 for j in i.nodes:
-                    mc = min(j.mcCready[alt_index],20)
+                    mc = numpy.append(mc,min(j.mcCready[alt_index],19))
                     x = numpy.append(x,  x0 + (j.distanceFromTarget * nm_to_km * 1000)*math.sin(j.radialFromTarget))
                     y = numpy.append(y, y0 + (j.distanceFromTarget * nm_to_km * 1000)*math.cos(j.radialFromTarget))
-                    dir_x = numpy.append(dir_x, mc*math.sin(j.radialFromTarget-math.pi+j.optimalDirection[alt_index]))
-                    dir_y = numpy.append(dir_y, mc * math.cos(j.radialFromTarget-math.pi+j.optimalDirection[alt_index]))
+                    dir_x = numpy.append(dir_x, math.sin(j.radialFromTarget-math.pi+j.optimalDirection[alt_index]))
+                    dir_y = numpy.append(dir_y, math.cos(j.radialFromTarget-math.pi+j.optimalDirection[alt_index]))
                 
-            mc_vec = numpy.hypot(dir_x, dir_y)
-            q = ax.flat[alt].quiver(x, y, dir_x, dir_y, mc_vec)
-            ax.flat[alt].quiverkey(q,X=0.9, Y=1.05, U=10, label='10 kts', labelpos='E')
+            #CONTOURF
+            cntr = ax.flat[alt].tricontourf(x/1000, y/1000, mc, levels=numpy.arange(0,21), cmap="RdBu_r")
+            #cs = ax.flat[alt].tricontour(x, y, mc, levels=numpy.arange(0,21), linewidths=0.5, colors='k')
+            #ax.flat[alt].clabel(cs, fontsize=9, inline=1)
+
+            #CONTOUR
+            #CS = ax.flat[alt].tricontour(x, y, mc, 6, colors='k')
+            #ax.flat[alt].clabel(CS, fontsize=9, inline=1)
+            
+            #QUIVER
+            q = ax.flat[alt].quiver(x/1000, y/1000, dir_x, dir_y)
+            #ax.flat[alt].quiverkey(q,X=0.9, Y=1.05, U=10, label='10 kts', labelpos='E')
+
             ax.flat[alt].set_title("%d ft" % (chart.hGrid[alt_index]))    
-    
         
-        plt.tight_layout()
+        fig.subplots_adjust(right=0.85)
+        cbar_ax = fig.add_axes([0.87, 0.13, 0.05, 0.7])
+        fig.colorbar(cntr, cax=cbar_ax)
+        #plt.tight_layout()
         plt.show()
 
     def savetoDB(self):
@@ -457,7 +522,13 @@ class AuxNode(Node):
         self.wtv=numpy.copy(nextNode.wtv)
         li=0
 
-        [lprb, lift_strengts]= self.chart.liftMap.getLiftProb()
+        start_point = Point(self.chart.target.yTarget,self.chart.target.xTarget)
+        end_point = Point(self.chart.target.yTarget,self.chart.target.xTarget)
+        start_point.setPositionRadDist(self.radialFromTarget, self.distanceFromTarget)
+        end_point.setPositionRadDist(nextNode.radialFromTarget, nextNode.distanceFromTarget)
+
+
+        [lprb, lift_strengts]= self.chart.liftMap.getLiftProb(start_point,end_point)
                                                     # look over all lift values
         while li < self.chart.liftGridSize:
             l =  lift_strengts[li]					
@@ -596,7 +667,7 @@ class EnRouteNode(Node):
         self.optimalDirection[0] = 0
 
 class Point:
-    def __init__(self, x_target, y_target):
+    def __init__(self, y_target, x_target):
         self.xTarget = x_target
         self.yTarget = y_target
 
@@ -605,7 +676,7 @@ class Point:
         self.y = y 
         x_diff = self.x - self.xTarget
         y_diff = self.y - self.yTarget
-        self.distanceFromTarget = math.sqrt(x_diff**2 + y_diff**2)
+        self.distanceFromTarget = math.sqrt(x_diff**2 + y_diff**2)/1000/nm_to_km
         acos_y = math.acos(y_diff / self.distanceFromTarget)  
         if x_diff >= 0:
             self.radialFromTarget = acos_y 
@@ -615,8 +686,8 @@ class Point:
     def setPositionRadDist(self, rad, dist):
         self.radialFromTarget = rad
         self.distanceFromTarget = dist 
-        self.x = self.xTarget + math.sin(self.radialFromTarget) * self.distanceFromTarget
-        self.y = self.yTarget + math.cos(self.radialFromTarget) * self.distanceFromTarget
+        self.x = self.xTarget + math.sin(self.radialFromTarget) * self.distanceFromTarget * nm_to_km * 1000
+        self.y = self.yTarget + math.cos(self.radialFromTarget) * self.distanceFromTarget * nm_to_km * 1000
 
 class GlidePolar:
     def __init__(self):
@@ -713,7 +784,7 @@ def main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_interval
     charts=[]
 
     for i in turnpoints:
-        index=numpy.argwhere(turn_point_file[0,]==i)
+        index=numpy.argwhere(turn_point_file[0,]==i)[0][0]
         target=Point(turn_point_file[1,index] , turn_point_file[2,index])
         charts.append(Chart(lift_map,height_band,circle_intervals,n_circles,polar, target))
     
@@ -738,7 +809,7 @@ if __name__ == '__main__':
     turnpoints=[1] # EFRY
     #Chart parameters, km
     circle_intervals = 1.852
-    n_circles = 3
+    n_circles = 10
     #ADD node_interval
 
     cProfile.run('main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_intervals,n_circles,turnpoints)', 'run_stats')
