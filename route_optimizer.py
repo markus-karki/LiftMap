@@ -171,21 +171,42 @@ class DataStructure:
 
     def plotChart(self):
         chart = self.circles[0].nodes[0].chart
-        n_altitudes = 6
+        n_rows = 2
+        n_cols = 3
+        n_altitudes = n_rows * n_cols
         x0 = chart.target.xTarget
         y0 = chart.target.yTarget
-        data = [] #x, y, dir x, dir y
+
+        fig, ax = plt.subplots(nrows=n_rows,ncols=n_cols,sharey=True)        
+        
         for alt in range(n_altitudes):
-            alt_index = (alt+1)*(chart.hGridSize/n_altitudes) - 1
-            for i in self.circles:
-                for j in i.nodes:
-                    x = 
-                    y =
-                    dir_x =
-                    dir_y =
-                    data = numpy.vstack([data,[x, y, dir_x, dir_y]])
+            alt_index = int((alt+1)*(chart.hGridSize/n_altitudes) - 1)
+            x = numpy.array([x0])
+            y = numpy.array([y0])
+            dir_x = numpy.array([0])
+            dir_y = numpy.array([0])
             
-        plt.barbs
+            for i in self.circles[1:]:
+          
+
+                for j in i.nodes:
+                    mc = min(j.mcCready[alt_index],20)
+                    x = numpy.append(x,  x0 + (j.distanceFromTarget * nm_to_km * 1000)*math.sin(j.radialFromTarget))
+                    y = numpy.append(y, y0 + (j.distanceFromTarget * nm_to_km * 1000)*math.cos(j.radialFromTarget))
+                    dir_x = numpy.append(dir_x, mc*math.sin(j.radialFromTarget-math.pi+j.optimalDirection[alt_index]))
+                    dir_y = numpy.append(dir_y, mc * math.cos(j.radialFromTarget-math.pi+j.optimalDirection[alt_index]))
+                
+            mc_vec = numpy.hypot(dir_x, dir_y)
+            q = ax.flat[alt].quiver(x, y, dir_x, dir_y, mc_vec)
+            ax.flat[alt].quiverkey(q,X=0.9, Y=1.05, U=10, label='10 kts', labelpos='E')
+            ax.flat[alt].set_title("%d ft" % (chart.hGrid[alt_index]))    
+    
+        
+        plt.tight_layout()
+        plt.show()
+
+    def savetoDB(self):
+        pass
 
 class Circle:
     def __init__(self,index, chart):
@@ -521,12 +542,9 @@ class AuxNode(Node):
         self.expectedOutlandPoints = numpy.sum(numpy.multiply(results_outlanding_points,lprb.reshape([1,-1])),axis=1)
         #self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * numpy.minimum(self.chart.routeDist/numpy.matmul(results_t_to_go,lprb)/3600/self.chart.vWin,numpy.ones([self.chart.hGridSize]))
         self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * (self.chart.tWin*3600)/(numpy.matmul(results_t_to_go,lprb)+((self.chart.xmax-self.distanceFromTarget)/self.chart.vWin*3600))
-<<<<<<< HEAD
 
         self.expectedOutlandPoints[0] = (self.chart.routeDist-self.distanceFromTarget)/self.chart.routeDist*self.chart.alpha
         self.expectedPoints[0] = (self.chart.routeDist-self.distanceFromTarget)/self.chart.routeDist*self.chart.alpha
-=======
->>>>>>> ce47d024fed0c0da9aa255ab44bc58cc2e7e7cb3
 
         #lamfin=numpy.concatenate((lamfin,lamv.reshape([-1,1])),axis=1)
 
@@ -700,7 +718,8 @@ def main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_interval
         charts.append(Chart(lift_map,height_band,circle_intervals,n_circles,polar, target))
     
     #Create maps
-    charts[0].dataStructure.plotCurve(1,0)
+    charts[0].dataStructure.plotChart()
+    #charts[0].dataStructure.plotCurve(1,0)
 
 # PARSE ARGUMENTS
 if __name__ == '__main__':
@@ -719,7 +738,7 @@ if __name__ == '__main__':
     turnpoints=[1] # EFRY
     #Chart parameters, km
     circle_intervals = 1.852
-    n_circles = 2
+    n_circles = 3
     #ADD node_interval
 
     cProfile.run('main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_intervals,n_circles,turnpoints)', 'run_stats')
