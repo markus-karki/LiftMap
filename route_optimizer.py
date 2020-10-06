@@ -33,7 +33,6 @@ class LiftMap:
         self.xGridSize=(self.lonMax-self.lonMin)/self.xSize
         self.yGridSize=(self.latMax-self.latMin)/self.ySize
 
-    #TODO
     def getLiftProb(self, start_point=None,end_point=None):
         width = 500
         
@@ -62,35 +61,40 @@ class LiftMap:
         c = numpy.divide(c, [self.yGridSize, self.xGridSize])
 
         if x_min < self.lonMin or x_max > self.lonMax or y_min < self.latMin or y_max > self.latMax:
+            print('ERROR in .getLiftProb()')
             return numpy.array([0.5, 0.5]),numpy.array([0.0, 0.0])
+            
         
-        sub_map = self.probMatrix[int((y_min-self.latMin)/self.yGridSize):int((y_max-self.latMin)/self.yGridSize),int((x_min-self.lonMin)/self.xGridSize):int((x_max-self.lonMin)/self.xGridSize)]
+        sub_map = self.probMatrix[int((self.latMax-y_max)/self.yGridSize):int((self.latMax-y_min)/self.yGridSize),int((x_min-self.lonMin)/self.xGridSize):int((x_max-self.lonMin)/self.xGridSize)]
 
         filter = numpy.ones(sub_map.shape)
         grid = numpy.indices(sub_map.shape)
         # Test 1
         k = (c[0,0]-c[2,0])/(c[0,1]-c[2,1])
-        filter = numpy.multiply(filter, ((grid[1,:,:]-c[2,1]) * k + c[2,0]) > numpy.flipud(grid[0,:,:]))
+        filter = numpy.multiply(filter, ((grid[1,:,:]-c[2,1]) * k + c[2,0]) >= numpy.flipud(grid[0,:,:]))
         
         # Test 2
         k = (c[2,0]-c[1,0])/(c[2,1]-c[1,1])
-        filter = numpy.multiply(filter, ((grid[1,:,:]-c[1,1]) * k + c[1,0]) > numpy.flipud(grid[0,:,:]))
+        filter = numpy.multiply(filter, ((grid[1,:,:]-c[1,1]) * k + c[1,0]) >= numpy.flipud(grid[0,:,:]))
         
         # Test 3
         k = (c[3,0]-c[1,0])/(c[3,1]-c[1,1])
-        filter = numpy.multiply(filter, ((grid[1,:,:]-c[1,1]) * k + c[1,0]) < numpy.flipud(grid[0,:,:]))
+        filter = numpy.multiply(filter, ((grid[1,:,:]-c[1,1]) * k + c[1,0]) <= numpy.flipud(grid[0,:,:]))
 
         # Test 4
         k = (c[0,0]-c[3,0])/(c[0,1]-c[3,1])
-        filter = numpy.multiply(filter, ((grid[1,:,:]-c[3,1]) * k + c[3,0]) < numpy.flipud(grid[0,:,:]))
+        filter = numpy.multiply(filter, ((grid[1,:,:]-c[3,1]) * k + c[3,0]) <= numpy.flipud(grid[0,:,:]))
+
+        if min(sub_map.shape)==1:
+            filter[0][:] = 1
 
         lift_prob = numpy.sum(numpy.multiply(filter, sub_map))/numpy.sum(filter)
-
+       
         return numpy.array([lift_prob, 1-lift_prob]),numpy.array([self.liftStrength, 0.0])
-        #return numpy.array([0.1, 0.9]),numpy.array([(4+1.15)*.508/kts_to_ms, 0.0])
+        #TEST return numpy.array([0.1, 0.9]),numpy.array([(4+1.15)*.508/kts_to_ms, 0.0])
 
 class Chart:
-    #TODO
+   
     def __init__(self,lift_map ,height_band,circle_intervals,n_circles, polar, target):
         
         self.polar = polar
@@ -198,7 +202,9 @@ class DataStructure:
         plt.tight_layout()
         plt.show()
  
-    def plotArea(self, altitude):
+    def plotArea(self, altitude): 
+        #ToDo
+        
         # Define area
         n_radials = 20
         n_circles = len(self.circles)
@@ -208,7 +214,7 @@ class DataStructure:
         for i in range(n_circles):
             for j in range(n_radials):
                 radialFromTarget =  1.0 * j / self.circles[i].nNodes * 2 * math.pi
-                data[i,j] =  InterpolationNode(self.circles[i],self.cirles[0].nodes[0].chart, radialFromTarget)
+                data[i,j] =  InterpolationNode(self.circles[i],self.circles[0].nodes[0].chart, radialFromTarget)
                 data[i,j].calculateNode
 
         #Draw figure
@@ -219,7 +225,40 @@ class DataStructure:
         plt.subplot(2,3,1)
 
         plt.matshow(data)
-        # 
+        
+        hgrid = node.chart.hGrid
+        
+        fig, ((ax0,ax1,ax2),(ax3,ax4,ax5)) = plt.subplots(nrows=2,ncols=3,sharey=True)
+
+        ax0.plot(node.mcCready,hgrid)
+        ax0.set_ylabel('Altitude (ft)')
+        ax0.set_xlabel("McCready, kts")
+        ax0.grid(True)
+
+        ax1.plot(node.optimalDirection,hgrid)
+        ax1.set_xlabel("Optimal direction, rad")
+        ax1.grid(True)
+
+        ax2.plot(node.expectedPoints*1000,hgrid)
+        ax2.set_xlabel("Expected points")
+        ax2.grid(True)
+
+        ax3.plot(node.expectedTimeToGo,hgrid)
+        ax3.set_xlabel("Expected time to finish, s")
+        ax3.set_ylabel('Altitude (ft)')
+        ax3.grid(True)
+
+        ax4.plot(node.expectedFinishProb*100,hgrid)
+        ax4.set_xlabel("Probability to finish, %")
+        ax4.grid(True)
+
+        ax5.plot(node.expectedOutlandPoints*1000,hgrid)
+        ax5.set_xlabel("Expected distance points")
+        ax5.grid(True)
+
+        fig.suptitle("Area",y=0.99)
+        plt.tight_layout()
+        plt.show()
 
     def plotChart(self):
         chart = self.circles[0].nodes[0].chart
@@ -465,7 +504,6 @@ class InterpolationNode(Node):
         down_index = int(math.floor(position))
         weight = (position - math.floor(position)) / step
          
-        #TODO handle node creation when radial outside of 0,2pi
         node_index = [down_index, up_index]
         weights = [1 - weight, weight]
        
@@ -493,7 +531,7 @@ class AuxNode(Node):
             distanceToNextNode = self.distanceFromTarget - target_circle.distanceFromTarget
         else:
             beta = math.pi - auxNodeDirection - math.asin(self.parentCircle.distanceFromTarget/target_circle.distanceFromTarget*math.sin(auxNodeDirection))
-            target_radial = (self.radialFromTarget - beta) % math.pi 
+            target_radial = (self.radialFromTarget - beta) % (math.pi) 
             distanceToNextNode = target_circle.distanceFromTarget * math.sin(beta) / math.sin(auxNodeDirection)
 
         nextNode = InterpolationNode(target_circle, self.chart, target_radial)
@@ -608,8 +646,10 @@ class AuxNode(Node):
         self.wtv = numpy.sum(numpy.multiply(wtl,lprb.reshape([1,-1])),axis=1)
         self.mcCready = - self.wtv / self.whv
 
-        self.expectedFinishProb = numpy.sum(numpy.multiply(results_p_finish,lprb.reshape([1,-1])),axis=1) 
-        self.expectedTimeToGo = numpy.nan_to_num(numpy.divide(numpy.sum(numpy.multiply(numpy.multiply(results_t_to_go,lprb.reshape([1,-1])),results_p_finish),axis=1),numpy.sum(numpy.multiply(lprb.reshape([1,-1]),results_p_finish),axis=1))) 
+        self.expectedFinishProb = numpy.sum(numpy.multiply(results_p_finish,lprb.reshape([1,-1])),axis=1)
+        divider = numpy.sum(numpy.multiply(lprb.reshape([1,-1]),results_p_finish),axis=1)
+        divider[divider==0]=.001
+        self.expectedTimeToGo = numpy.nan_to_num(numpy.divide(numpy.sum(numpy.multiply(numpy.multiply(results_t_to_go,lprb.reshape([1,-1])),results_p_finish),axis=1),divider)) 
         self.expectedOutlandPoints = numpy.sum(numpy.multiply(results_outlanding_points,lprb.reshape([1,-1])),axis=1)
         #self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * numpy.minimum(self.chart.routeDist/numpy.matmul(results_t_to_go,lprb)/3600/self.chart.vWin,numpy.ones([self.chart.hGridSize]))
         self.expectedPoints = numpy.matmul(results_outlanding_points,lprb)+numpy.matmul(results_p_finish,lprb)*(1-self.chart.alpha) * (self.chart.tWin*3600)/(numpy.matmul(results_t_to_go,lprb)+((self.chart.xmax-self.distanceFromTarget)/self.chart.vWin*3600))
@@ -790,6 +830,7 @@ def main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_interval
     
     #Create maps
     charts[0].dataStructure.plotChart()
+    #charts[0].dataStructure.plotArea()
     #charts[0].dataStructure.plotCurve(1,0)
 
 # PARSE ARGUMENTS
@@ -802,14 +843,14 @@ if __name__ == '__main__':
     #Lift strenght, m/s
     lift_strenght = 3.0
     #Height band, cloudbase, m
-    height_band = 1524 #1500
+    height_band = 1000 #1524 #1500
     #todo: wind
 
     #Turnpoints
     turnpoints=[1] # EFRY
     #Chart parameters, km
     circle_intervals = 1.852
-    n_circles = 10
+    n_circles = 8
     #ADD node_interval
 
     cProfile.run('main(lift_map_file,turn_point_file,lift_strenght,height_band,circle_intervals,n_circles,turnpoints)', 'run_stats')

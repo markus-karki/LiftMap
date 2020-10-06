@@ -151,6 +151,9 @@ class Database:
 
 def main():
     pass
+    #Create database
+
+    #Open IGC files and save fixes to db
 
 # Parse arguments
 if __name__ == '__main__':
