@@ -731,7 +731,7 @@ class Point:
 
 class GlidePolar:
     def __init__(self):
-        #Dry LS7 33.9 km/m2
+        #Dry LS7 33.9 kg/m2
         #self.minSink=1.22
         #self.minSinkSpeed=46
         #self.highSpeed=92

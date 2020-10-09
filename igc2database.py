@@ -1,161 +1,84 @@
+from time import gmtime, strftime
+import sqlite3
+import os 
+from pyproj import Proj
 
 # IGC data to database
 
-class Flight:
-    def __init__(self):
-        self.igc
-        self.date
-
-        self.fix #list
-        self.segment #list
-
-        self.windEst
-        self.liftTopEst
-        self.avgLiftEst
-    
-    def parse(self):
-        kalman_filter =
-        while:
-            Fix
-
-
-class Wind:
-    def __init__(self):
-        self.direction
-        self.speed
-
-class Fix:
-    def __init__(self):
-        self.timestamp
-        self.position
-        self.altitude
-        self.startFilter
-        self.endFilter
-
-        self.xEstimate
-        self.yEstimate
-        self.hEstimate
-
-        self.xWindEstimate
-        self.YWindEstimate
-        self.liftEstimate
-
-        self.xAirSpeedEstimate
-        self.yAirSpeedEstimate
-        self.verticalSpeedEstimate
-
-        self.thetaEstimate
-        self.liftEstimate
-
-
-class KalmanFilter:
-    def __init__(self,x0, P0, Q0, R0):
-        self.m = 500.0
-        self.g = 9.81
-
-        self.a = ??
-        self.ldMax = 42
-        self.minSink = 0.7
-        
-        # State estimate
-        self.x = x0
-        # State uncertainty
-        self.P = P0
-        # Covarience of process noise
-        self.G = 
-        self.Q = Q0 * [] * dt # sigma_wx = .001
-        # Covarience of observation noise
-        self.R = R0
-
-        # Observation model
-        self.H = constant
-
-    def update(self, z, dt):
-        self.x_pre = self.f(dt)
-        self.jacob = self.jacobian()
-        self.P_pre = self.jacob * self.P * self.jacob.T + self.Q
-
-        
-        self.K = self.P_pre * self.H.T * Inv(self.H * self.P_pre self.H.T + self.R)
-        self.x = self.x_pre + self.K * (z - self.h())
-        self.P = (I - self.K * self.H) * self.P_pre 
-
-    def f(self, dt):
-        dt =
-
-        # Aux variables
-        v_post = sqrt(v_x_post ** 2 + v_y_post ** 2)
-        drag_post = (s_min + a / 2 (v_post - v_minsink) ** 2) / v_post *  lift_post
-        
-        a_long_post = (cos(theta) * - (h_dot_post - wind_h_post) / v_post * lift_post - drag_post) / m
-        a_lat_post = sin(theta) * lift_pre / m
-
-        v_x_dot = v_x_post / v_post + a_long_post + v_y_post / v_post + a_lat_post
-        v_y_dot = v_y_post / v_post + a_long_post + v_x_post / v_post + a_lat_post
-        
-        h_dot_dot = cos(theta) * lift_post / m - g
-
-        # State variables
-        x_pre = x_post + v_x_post * dt + wind_x_post * dt + 1 / 2 * v_x_dot * dt ** 2 # Process noise by wind_x
-        y_pre = y_post + v_y_post * dt + wind_y_post * dt + 1 / 2 * v_y_dot * dt ** 2 # Process noise by wind_y
-        h_pre = h_post + h_dot_post * dt + 1 / 2 * h_dot_dot * dt ** 2 # Process noise by theta, lift
-        h_dot_pre = h_dot_post + h_dot_dot * dt # Process noise by theta, lift
-
-        wind_x_pre = wind_x_post # Process noise by wind_x
-        wind_y_pre = wind_y_post # Process noise by wind_y
-        wind_h_pre = wind_h_post # Process noise by wind_h
-
-        v_x_pre = v_x_post + v_x_dot * dt # Process noise by theta, lift, wind_h, v_x, v_y 
-        v_y_pre = v_y_post + v_y_dot *dt # Process noise by theta, lift, wind_h, v_x, v_y 
-
-        theta_pre = theta_post # Process noise by theta
-        lift_pre = lif_post # Process noise by lift
-
-    def jacobian(self):
-        self.jacobian[:] = I
-
-        
-
-
-    def h(self):
-
-class Position:
-    def __init__(self):
-        self.latWGS
-        self.lonWGS
-        self.latUTM
-        self.lonUTM
-        self.projection
-
-class LiftArea:        
-    def __init__(self):
-        self.position #list
-        self.radius
-        self.landCover #list
-        self.soilType #list
-        self.minAltitude
-        self.maxAltitude
-
-        self.altitudeDifference
-
-class Projection: 
-    def __init__(self):
-        self.ellps
-        self.zone
-        self.proj
-        self.func
-
-
 class Database:
-    def __init__(self):
+    def __init__(self, databaseName):
+        if databaseName == "":
+            dbName = strftime("LiftData_%Y%m%d_%H%M%S", gmtime())
+        else:
+            dbName = databaseName
+        
+        self.file = sqlite3.connect(dbName)
+        
+        # Create tables, if new database
+        if databaseName == "":
+            self.file.cursor.execute('''CREATE TABLE Flights(ID TEXT, Date INT, Type TEXT , PRIMARY KEY(ID))''')
+            self.file.cursor.execute('''
+            CREATE TABLE Fixes(FlightID TEXT, Timestamp INT, Latitude INT, Longitude INT, Altitude INT, AltitudeFilter INT,PRIMARY KEY(FlightID, Timestamp))''')
+            self.file.cursor.execute('''
+            CREATE TABLE AirFlowEstimates(Timestamp INT, Latitude INT, Longitude INT, Altitude INT, AltitudeFilter INT,PRIMARY KEY(flight_id, km_id))''')
+            self.file.cursor.execute('''
+            CREATE TABLE FixEstimates(FlightID TEXT, Timestamp INT, Lat INT, Lon INT, Alt INT, V_lat INT, V_lon INT, V_alt INT, Theta INT, Lift INT, PRIMARY KEY(FlightID, Timestamp))''')
+            self.file.commit()
 
-def main():
-    pass
-    #Create database
+def main(folder, databaseName):
+    #Create or open database
+    database = Database(databaseName)
 
     #Open IGC files and save fixes to db
+    fileList=os.listdir(folder)
+    projection = Proj(proj='utm',zone=35,ellps='WGS84')
+
+    #Go throught files
+    for igc_file in filelist:
+        #Check if in database
+        #TODO
+
+        # Read file
+        if igc_file.endswith('.igc'):
+            # Read igc and save flight data to database
+            f = open(folder+"/"+igc_file, 'r')
+            for line in f:
+                # Read date
+                if  line[0:5]=="HFDTE":
+                    flight_date=line[5:7]+"/"+line[7:9]+"/20"+line[9:11]
+
+                # Read type
+                if  line[0:5]=="HFGTYGLIDERTYPE":
+                    flight_date=line[5:7]+"/"+line[7:9]+"/20"+line[9:11]
+                #Check if line is a gps-fix
+                if line[0]=="B":
+                    # Extract time
+                    fix_time=int(line[1:3])*3600+int(line[3:5])*60+int(line[5:7])
+                    # Extract lat INTEGER 
+                    wgs_lat=float(line[7:9])+float(line[9:14])/60000
+                    # Extract lon INTEGER
+                    wgs_lon=float(line[15:18])+float(line[18:23])/60000
+                    #Convert coordinates
+                    utm_lon, utm_lat=projection(wgs_lon,wgs_lat)
+
+                    # Extract altitude INTEGER: read+convert
+                    if line[25:30]=="000000":
+                        fix_altitude=int(line[30:35])
+                    else:
+                        fix_altitude=int(line[25:30])
+
+                    # Save to database
+                    cursor.execute('''INSERT INTO fix_table(flight_id, fix_id, date_, time_,  lat, lon,  altitude) VALUES(?,?,?,?,?,?,?)''', (igc_file,fix_id,flight_date,fix_time,int(utm_lat),int(utm_lon),fix_altitude))
+                        
+            print(igc_file)			
+            # Commit to database
+            database.file.commit()
+    
+    database.file.close()
 
 # Parse arguments
 if __name__ == '__main__':
-    igc_folder=os.getcwd()+"/EFRYarkisto"
+    igc_folder = "/Users/Markus/OneDrive/IGC_analysis/EFRYarkisto"
+    databaseName = ""
 
+    main(igc_folder,database_name)
