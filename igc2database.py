@@ -3,42 +3,9 @@ import datetime
 import sqlite3
 import os 
 from pyproj import Proj
+from lib.database import Database
 
 # IGC data to database
-
-class Database:
-    def __init__(self, databaseName):
-        if databaseName == "":
-            dbName = time.strftime("LiftData_%Y%m%d_%H%M%S", time.gmtime())
-        else:
-            dbName = databaseName
-        
-        self.file = sqlite3.connect(dbName)
-        self.cursor=self.file.cursor()
-
-        # Create tables, if new database
-        if databaseName == "":
-            self.cursor.execute('''CREATE TABLE Flights(FlightID TEXT, Date INT, Type TEXT , PRIMARY KEY(FlightID))''')
-            self.cursor.execute('''
-            CREATE TABLE Fixes(FlightID TEXT, Timestamp INT, Latitude INT, Longitude INT, Altitude INT, PRIMARY KEY(FlightID, Timestamp))''')
-            self.cursor.execute('''
-            CREATE TABLE AirFlowEstimates(FlightID TEXT, Timestamp INT, Latitude INT, Longitude INT, Altitude INT, XWind INT, YWind INT, Lift INT, PRIMARY KEY(FlightID, Timestamp))''')
-            self.cursor.execute('''
-            CREATE TABLE FixEstimates(FlightID TEXT, Timestamp INT, Lat INT, Lon INT, Alt INT, V_lat INT, V_lon INT, V_alt INT, Theta INT, Lift INT, PRIMARY KEY(FlightID, Timestamp))''')
-            self.file.commit()
-    
-    def getData(self, queryString, dataTuple):
-        self.cursor.execute(queryString, dataTuple)
-        data = self.cursor.fetchall()[0][0]
-        return data
-    
-    def insertData(self, queryString, dataTuple):
-        self.cursor.execute(queryString, dataTuple)
-        self.file.commit()
-
-    def insertManyData(self, queryString, dataTuple):
-        self.cursor.executemany(queryString, dataTuple)
-        self.file.commit()
 
 def main(folder, databaseName):
     #Create or open database
@@ -54,7 +21,7 @@ def main(folder, databaseName):
     for igc_file in fileList:
         flightID = igc_file.rsplit('.',1)[0]
         # Check if in database
-        if database.getData('SELECT EXISTS(SELECT FlightID FROM Flights WHERE FlightID=?)',(flightID,)):
+        if database.getData('SELECT EXISTS(SELECT FlightID FROM Flights WHERE FlightID=?)',(flightID,))[0][0]:
             status['found']=status['found'] + 1
             status['done']=status['done'] + 1
 
