@@ -1,14 +1,6 @@
 class Flight:
     def __init__(self):
-        self.igc
-        self.date
-
-        self.fix #list
-        self.segment #list
-
-        self.windEstimate
-        self.liftTopEstimate
-        self.avgLiftEstimate
+        self.fixes = 0
     
     def parse(self):
         kalman_filter = 0
@@ -26,10 +18,9 @@ class Fix:
         self.flight
         
         self.timestamp
-        self.position
+        self.latitude
+        self.lontitude
         self.altitude
-        self.startFilter
-        self.endFilter
 
         self.xEstimate
         self.yEstimate
@@ -119,14 +110,6 @@ class KalmanFilter:
     def h(self):
         pass
 
-class Position:
-    def __init__(self):
-        self.latWGS
-        self.lonWGS
-        self.latUTM
-        self.lonUTM
-        self.projection
-
 class LiftArea:        
     def __init__(self):
         self.position #list
@@ -144,3 +127,20 @@ class Projection:
         self.zone
         self.proj
         self.func
+
+
+def main():
+    # Open database
+
+    # Go through flights
+        #
+
+        #
+
+        # Save to database
+    pass
+
+if __name__ == '__main__':
+    database = ""
+
+    main()
