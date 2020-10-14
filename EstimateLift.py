@@ -1,12 +1,14 @@
 from lib.database import Database
-from lib.flightModel_simple import Model
+from lib.flightModel import Model
 from math import sqrt, acos, cos, sin
 import numpy
 
 class Flight:
     def __init__(self, flightID, database):
         self.flightID = flightID
-        self.Fixes =  list()   
+        self.Fixes =  list()  
+        self.Estimates =  list()
+        self.FilterStates =  list() 
         data = database.getData('SELECT Timestamp, Latitude, Longitude, Altitude FROM Fixes WHERE FlightID=? ORDER BY Timestamp ASC',(self.flightID,))
         for row in data:
             newFix = Fix(row)
@@ -20,7 +22,13 @@ class Flight:
     def getEstimateData(self):
         output = list()
         for fix in self.Fixes:
-            output.append((self.flightID, fix.timestamp, fix.estLatitude, fix.estLongitude, fix.estAltitude, fix.xwind, fix.ywind, fix.zwind, fix.speed, fix.direction, fix.verticalSpeed, fix.theta, fix.lift))
+            output.append((self.flightID, fix.timestamp, fix.estLatitude, fix.estLongitude, fix.estAltitude, fix.xwind, fix.ywind, fix.zwind, fix.speed, fix.direction,fix.verticalSpeed, fix.theta, fix.n))
+        return output
+    
+    def getStateVariableData(self):
+        output = list()
+        for fix in self.Fixes:
+            output.append((self.flightID, fix.timestamp, fix.variable, fix.value))
         return output
 
 class Fix:
@@ -32,11 +40,13 @@ class Fix:
 
     def setEstimate(self, data):
         self.estLatitude = data[0,0]
-        self.estLongitude = int(data[1,0])
-        self.estAltitude = int(data[2,0])
+        self.estLongitude = data[1,0]
+        self.estAltitude = data[2,0]
         self.xwind = data[3,0]
         self.ywind = data[4,0]
         self.zwind = data[5,0]
+
+        #for dataPoint in data[6:,0]
         self.speed = sqrt(data[6,0]**2 + data[7,0] ** 2)
 
         if self.speed == 0:
@@ -50,15 +60,15 @@ class Fix:
 
         self.verticalSpeed = data[8,0]
         self.theta = data[9,0]
-        self.lift = data[10,0]
+        self.n = data[10,0]
 
 class KalmanFilter:
     def __init__(self, initialFix):
-        self.model = Model(initialFix)
+        self.model = Model()        
+        
+        # Inital state
+        self.x = self.model.getX0(initialFix) 
 
-        # State estimate: (lat, lon, alt, windX, windY, windZ, vX, vY, vZ, theta, lift)
-        self.x = self.model.x0 
-        #numpy.transpose(numpy.array([[initialFix.latitude, initialFix.longitude, initialFix.altitude, 0, 0, 0, 0, 0, 0, self.m * self.g, 0]]))
         
         self.x_pre = self.x
         self.time = initialFix.timestamp
@@ -85,8 +95,8 @@ class KalmanFilter:
         else:
 
             # Predict
-            self.x_pre = self.model.updatePrediction(self.x, self.dt)
-            self.F = self.model.updateJacobian(self.x, self.dt)
+            self.x_pre = self.model.Predict(self.x, self.dt)
+            self.F = self.model.Jacobian(self.x, self.dt)
             self.P_pre = self.F * self.P * self.F.T + self.Q
             
             # Update
@@ -94,13 +104,14 @@ class KalmanFilter:
             self.S = numpy.matmul(numpy.matmul(self.H, self.P_pre),self.H.T) + self.R
             self.K = numpy.matmul(numpy.matmul(self.P_pre, self.H.T), numpy.linalg.inv(self.S))
             self.x = self.x_pre + numpy.matmul(self.K, self.y)
-            self.P = numpy.matmul((numpy.identity(11) - numpy.matmul(self.K, self.H)), self.P_pre) 
+            self.P = numpy.matmul((numpy.identity(len(self.x)) - numpy.matmul(self.K, self.H)), self.P_pre) 
 
             return self.x
 
 def main(databaseName):
     # Open database
     database = Database(databaseName)
+    
     database.clearEstimateTables()
 
     # Get flights
@@ -130,6 +141,6 @@ def main(databaseName):
 
 if __name__ == '__main__':
     
-    databaseName = "LiftData_20201012_073620"
-
+    databaseName = "LiftData_20201014_163401"
+    #parameters = {saveFilterStates = True, recalculateAll = True}
     main(databaseName)
