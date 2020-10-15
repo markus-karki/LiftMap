@@ -18,17 +18,36 @@ class Model:
         return numpy.array([5,5,5,5,5,5,5,5,5,0.1,1])
         
     # Covarience of process noise
-    def getQ0(self):
-        a=numpy.array([[1,1,1,0.1,0.1,0.2,0.5,0.5,0.5,0.2,0.2]])
-        return a*numpy.ones((11,11))*a.T
+    def getQ0(self, dt):
+        G = numpy.zeros((11,5))
+        G[0,:] = (dt**2) / 2
+        G[1,:] = (dt**2) / 2
+        G[2,:] = (dt**2) / 2
+        G[3,0] = 1
+        G[4,1] = 1
+
+        G[5,2] = 1
+
+        G[6,:] = dt
+        G[7,:] = dt
+        G[8,:] = dt
+        G[9,3] = 1
+        G[9,4] = 1
+
+        Q = numpy.identity(5)*numpy.array([.1,.1,.1,.1,.1])/100
+        Q = numpy.matmul(numpy.matmul(G,Q),G.T)
+
+        return Q
 
     # Covarience of observation noise
     def getR(self):
-        return numpy.array([[5,0,0],[0,5,0],[0,0,5]])
+        r = 5
+        return numpy.array([[r,0,0],[0,r,0],[0,0,r*2]])
 
     # Observation model
-    def getH(self):
-        return numpy.array([[1,0,0,0,0,0,0,0,0,0,0],[0,1,0,0,0,0,0,0,0,0,0],[0,0,1,0,0,0,0,0,0,0,0]])
+    def getH(self, dt):
+        dt = 0
+        return numpy.array([[1,0,0,0,0,0,0,dt,0,0,0],[0,1,0,0,0,0,dt,0,0,0,0],[0,0,1,0,0,0,0,0,dt,0,0]])
 
     def Predict(self, x, dt):
 
@@ -39,7 +58,7 @@ class Model:
         TAS = sqrt(TAS_x ** 2 + TAS_y ** 2 + TAS_z ** 2)
         
         
-        if (TAS_lat < 15 or x[2,0]<200):
+        if (TAS_lat < 15):
             a_x = 0
             a_y = 0 
             a_z = 0
@@ -72,19 +91,22 @@ class Model:
     
     def Jacobian(self, x, dt):
         F = numpy.identity(11)
-        if (x[2,0]<200):
+        TAS_x = x[6,0] - x[3,0] # GS_x - Wind_x
+        TAS_y = x[7,0] - x[4,0] # GS_y - Wind_y
+        TAS_lat = sqrt(TAS_x ** 2 + TAS_y ** 2)
+        if (TAS_lat < 15):
             F[0,7]=dt
             F[1,6]=dt
             F[2,8]=dt
         else:
             rows = (0,1,2,6,7,8)
             cols = (3,4,5,6,7,8,9,10)
-            Q = self.getQ0()
+            Q = (10,10,5,1,1,1,5,5,5,.2,.5)
 
             for i in rows:
                 for j in cols:
                     dx = numpy.zeros([11,1])
-                    dx[j] = Q[j, j]
-                    F[i,j] = (self.Predict(x+dx, dt)[i] - self.Predict(x-dx, dt)[i]) / (2 * Q[j, j])
+                    dx[j] = sqrt(Q[j])
+                    F[i,j] = (self.Predict(x+dx, dt)[i] - self.Predict(x-dx, dt)[i]) / (2 * sqrt(Q[j]))
         
         return F
