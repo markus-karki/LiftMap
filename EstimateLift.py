@@ -41,8 +41,8 @@ def main(databaseName):
         CalculateMinmaxAltitude(df)
 
         # Save to database
-        df.plot(x='Time',subplots=1, layout=(5,3), sharex=1, grid=1)
-        plt.show()
+        #df.plot(x='Time',subplots=1, layout=(5,3), sharex=1, grid=1)
+        #plt.show()
         df.to_sql('Estimates', conn, if_exists='append', index = False)
 
         # Print status
