@@ -17,9 +17,10 @@ class Sets:
     def printStatus(self):
         pass
 
-class DataSet:
-    def __init__(self):
-        self.df = 0
+class Dataset:
+    def __init__(self, flight):
+        cursor.execute('SELECT * FROM Fixes WHERE FlightID=?', (flight[0],))
+        self.df = DataFrame(cursor.fetchall(), columns=['FlightID', 'Time', 'y','x','z'])
         self.polar = (1, 1) 
 
     def estimatateAcceleration(self):
@@ -59,10 +60,13 @@ class DataSet:
         pass
     
     def plot(self):
-        pass
+        self.df.plot(x='Time',subplots=1, layout=(5,3), sharex=1, grid=1)
+        plt.show()
+        self.df.hist(column='w_z', grid=1, bins=100)
+        plt.show()
 
     def saveToDB(self):
-        pass
+        self.df.to_sql('Estimates', conn, if_exists='append', index = False)
 
 def main(databaseName, RecalculateAll):
     # Open database
@@ -82,13 +86,12 @@ def main(databaseName, RecalculateAll):
     count = 0
     for flight in flightList:
         # Read data from database 
-        cursor.execute('SELECT * FROM Fixes WHERE FlightID=?', (flight[0],))
-        df = DataFrame(cursor.fetchall(), columns=['FlightID', 'Time', 'y','x','z'])
-
+        dataset = Dataset(flight)
+        
         # Estimate speed and acceleration
-        EstimateAcceleration(df, 'y', ['v_y','a_y'])
-        EstimateAcceleration(df, 'x', ['v_x','a_x'])
-        EstimateAcceleration(df, 'z',  ['v_z','a_z'], 9.81)
+        dataset.estimateAcceleration('y', ['v_y','a_y'])
+        dataset.estimateAcceleration('x', ['v_x','a_x'])
+        dataset.estimateAcceleration('z',  ['v_z','a_z'], 9.81)
     
         # Smooth, if needed (Kalman filter)
 
@@ -97,21 +100,17 @@ def main(databaseName, RecalculateAll):
         # Estimate glider polar
 
         # Estimate wind
-        EstimateWind(df, ['w_y','w_x','w_z'])
+        dataset.estimateWind(['w_y','w_x','w_z'])
         
         # Plot
-        df.plot(x='Time',subplots=1, layout=(5,3), sharex=1, grid=1)
-        plt.show()
-        df.hist(column='w_z', grid=1, bins=100)
-        plt.show()
+        dataset.plot()
         
         # Save fix data
         # time, y_lift, y_lift, altitude
-        df.to_sql('Estimates', conn, if_exists='append', index = False)
-
+        dataset.saveToDB()
 
         # Calculate minmax altitude for filtering
-        CalculateMinmaxAltitude(df)
+        dataset.calculateMinmaxAltitude()
                 
         # Define lift categories
 
@@ -140,8 +139,8 @@ def EstimateAcceleration(dataframe, key, new_keys, c = 0):
     dataframe[new_keys[1]] = y_spl_2d(dataframe['Time']) + c
 
 def CalculateMinmaxAltitude(dataframe):
-    dataframe['max_from_start'] = dataframe['Altitude'].cummax()
-    dataframe['max_from_end'] = dataframe['Altitude'].iloc[::-1].cummax().iloc[::-1]
+    dataframe['max_from_start'] = dataframe['z'].cummax()
+    dataframe['max_from_end'] = dataframe['z'].iloc[::-1].cummax().iloc[::-1]
     dataframe['Minmax_Altitude']=dataframe[['max_from_end', 'max_from_start']].min(axis=1)
     dataframe.drop(['max_from_start', 'max_from_end'], axis=1, inplace=True)
 
@@ -191,8 +190,7 @@ def EstimateWind(dataframe, keys):
     dataframe['w_z'] = w[:,2]
 
     # Print update
-    print('Average wind update: %', sum(abs(dw))/n)
-
+    print('Average wind update: {0:.2f}'.format(sum(abs(dw))/n))
 
 def CalculateWindChange(k, v, a):
     return sum(dw), w
