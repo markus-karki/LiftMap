@@ -4,6 +4,10 @@ import sqlite3
 import os 
 from pyproj import Proj
 from lib.database import Database
+# TODO 
+# - status, file and line to objects 
+# - Function: Read igc and save flight data to database
+# - Database class to this file, new method names
 
 # IGC data to database
 
@@ -29,7 +33,6 @@ def main(folder, databaseName):
         elif not(igc_file.endswith('.igc')):
             status['rejected']=status['rejected'] + 1
             status['done']=status['done'] + 1
-
         # Add file
         else:
             status['added']=status['added'] + 1
