@@ -1,3 +1,20 @@
+# -*- coding: utf-8 -*-
+__author__ = 'Markus Kärki'
+__version__ = "1.0.0"
+
+'''
+A script for creating a sqlite database from igc files. Needs database name and igc-file forder names as input
+
+Updates
+    -
+
+Todo
+    - Flight status for Flights table
+
+Known issues
+    -
+'''
+
 import sqlite3
 import json 
 from time import mktime
@@ -89,7 +106,7 @@ class Database:
         # Create tables, if new database
         if not(databaseExists):
             print('Database created')
-            self.cursor.execute('CREATE TABLE Flights(FlightID TEXT, Date INT, Type TEXT , PRIMARY KEY(FlightID))')
+            self.cursor.execute('CREATE TABLE Flights(FlightID TEXT, Date INT, Type TEXT, PRIMARY KEY(FlightID))')
             self.cursor.execute('CREATE TABLE Fixes(FlightID TEXT, Timestamp INT, Latitude INT, Longitude INT, Altitude INT, PRIMARY KEY(FlightID, Timestamp))')
             self.file.commit()
     
@@ -143,6 +160,6 @@ def main(folderPath, databaseName):
 # Parse arguments
 if __name__ == '__main__':
     igc_folder = "/Users/Markus/OneDrive/IGC_analysis/TestiArkisto"
-    databaseName = "test3"
+    databaseName = "database"
 
     main(igc_folder,databaseName)
