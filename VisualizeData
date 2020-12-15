@@ -1,0 +1,35 @@
+# -*- coding: utf-8 -*-
+__author__ = 'Markus Kärki'
+__version__ = "0.0.0"
+
+'''
+A script for creating visualization on lift data in a sqlite database. Needs database name as input
+
+Updates
+    -
+
+Todo
+    -
+
+Known issues
+    -
+'''
+from sqlite3 import connect
+from pandas import DataFrame 
+import plotly.express as px
+
+
+def main(databaseName):
+    # Open database
+    conn = connect(databaseName + '.db')
+    cursor = conn.cursor()
+
+    # Get datapoints    
+    cursor.execute('SELECT x_lift, y_lift, isLift FROM Estimates', ())
+    df = DataFrame(cursor.fetchall(), columns=['x_lift', 'y_lift', 'isLift'])
+    fig = px.scatter(df, x="x_lift", y="y_lift", color="isLift")
+    fig.show()
+
+if __name__ == '__main__':
+    databaseName = "database"
+    main(databaseName)

@@ -203,7 +203,6 @@ def main(databaseName, RecalculateAll):
     conn.close()
     print("\nCompleted")
 
-
 if __name__ == '__main__':
     databaseName = "database"
     RecalculateAll = True 
