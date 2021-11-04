@@ -88,9 +88,15 @@ def main(folder, databaseName):
 
     database.file.close()
 
+
+
+def getSkylinesFiles():
+    https://skylines.aero/api/flights/135006
+    https://skylines.aero/api/flights/date/2021-09-06
+
 # Parse arguments
 if __name__ == '__main__':
-    igc_folder = "/Users/Markus/OneDrive/IGC_analysis/TestiArkisto"
+    igc_folder = "./data/flights"
     databaseName = ""
 
     main(igc_folder,databaseName)
