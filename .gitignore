@@ -1,0 +1,6 @@
+data/
+results/
+visualizations/
+lib/old/
+.vscode/
+lib/__pycache__
