@@ -13,7 +13,7 @@ from sqlite3 import connect
 from pandas import DataFrame, read_sql_query
 from numpy import zeros, unique, save, load, sort, meshgrid, linspace, reshape, flipud, ones, minimum, maximum
 
-from pyproj import Proj, Transformer 
+from osgeo import osr
 
 #import plotly.express as px
 
@@ -21,8 +21,14 @@ import pickle
         
 class Geodata:
     def __init__(self, geodatasets):
-        self.utm_transformer = Transformer.from_crs(32635, 3035)
-        self.webMerc_transformer = Transformer.from_crs(3857, 3035)
+        source = osr.SpatialReference()
+        source.ImportFromEPSG(32635)
+        target = osr.SpatialReference()
+        target.ImportFromEPSG(3035)
+        self.utm_transformer =  osr.CoordinateTransformation(source, target)
+        source = osr.SpatialReference()
+        source.ImportFromEPSG(3857)
+        self.webMerc_transformer =  osr.CoordinateTransformation(source, target)
         self.dataset = rasterio.open(geodatasets)
         self.data = self.dataset.read(1)
     
@@ -32,9 +38,9 @@ class Geodata:
         a = 5
         for i in range(n):
             if coord_type == 'webMercator':
-                [y, x] = self.webMerc_transformer.transform(lon[i], lat[i])
+                [y, x, z] = self.webMerc_transformer.TransformPoint(lon[i], lat[i])
             else:
-                [y, x] = self.utm_transformer.transform(lon[i], lat[i])
+                [y, x, z] = self.utm_transformer.TransformPoint(lon[i], lat[i])
             [x_ind, y_ind] = self.dataset.index(x,y)
             [values, counts] = unique(self.data[(x_ind-a):(x_ind+a), (y_ind-a):(y_ind+a)], return_counts=True)
             X[i, values] = counts / ((2*a)**2)
@@ -107,7 +113,7 @@ def predictLift(geodatasets, clf):
     transform = Affine.translation(x_min - res / 2, y_max + res / 2) * Affine.scale(res, - res)
 
     new_dataset = rasterio.open(
-        './results/new2.tif',
+        './visualizations/new2.tif',
         'w',
         driver='GTiff',
         height=Z.shape[0],

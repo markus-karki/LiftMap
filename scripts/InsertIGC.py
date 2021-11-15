@@ -21,7 +21,7 @@ from time import mktime
 from datetime import date
 from os import listdir
 from os.path import exists
-from pyproj import Proj
+from osgeo import osr
 
 class Folder:
     def __init__(self, folderPath):
@@ -65,7 +65,7 @@ class File:
                     wgs_lon=float(line[15:18])+float(line[18:23])/60000
                     
                     #Convert coordinates
-                    utm_lon, utm_lat = projection.convert(wgs_lon,wgs_lat)
+                    utm_lon, utm_lat, z = projection.convert(wgs_lon,wgs_lat)
 
                     # Extract altitude
                     if line[25:30]=="000000":
@@ -91,10 +91,17 @@ class File:
 
 class Projection:
     def __init__(self, param):
-        self.f = Proj(param)
+        source = osr.SpatialReference()
+        source.ImportFromEPSG(4326)
+
+        target = osr.SpatialReference()
+        target.ImportFromEPSG(3067)
+
+        self.f = osr.CoordinateTransformation(source, target)
+
 
     def convert(self, longitude, latitude):
-        return self.f(longitude, latitude)
+        return self.f.TransformPoint(longitude, latitude)
 
 class Database:
     def __init__(self, databaseName):
@@ -132,7 +139,7 @@ def main(folderPath, databaseName):
     folder = Folder(folderPath)
     
     # Create projection
-    param = json.load(open('projection.json'))
+    param = json.load(open('./parameters/projection.json'))
     projection = Projection(param)
     
     # Go through files
@@ -159,7 +166,7 @@ def main(folderPath, databaseName):
 
 # Parse arguments
 if __name__ == '__main__':
-    igc_folder = "/Users/Markus/OneDrive/IGC_analysis/TestiArkisto"
+    igc_folder = "./data/flights"
     databaseName = "database"
 
     main(igc_folder,databaseName)

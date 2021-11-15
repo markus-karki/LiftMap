@@ -5,3 +5,4 @@ visualizations/
 lib/old/
 .vscode/
 lib/__pycache__
+database.db

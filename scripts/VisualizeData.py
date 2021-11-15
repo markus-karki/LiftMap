@@ -24,14 +24,14 @@ import json
 import plotly.express as px
 import plotly.graph_objects as go
 
-from pyproj import Proj
+from osgeo import osr
 
 import rasterio
 
 def soil_data_test():
-    dataset = rasterio.open('./data/wrbfu_directory/wrbfu/hdr.adf')
+    #dataset = rasterio.open('./data/wrbfu_directory/wrbfu/hdr.adf')
 
-    #dataset = rasterio.open('./data/landcover/DATA/U2018_CLC2018_V2020_20u1.tif')
+    dataset = rasterio.open('./data/landcover/DATA/U2018_CLC2018_V2020_20u1.tif')
 
 
 
@@ -55,9 +55,17 @@ def main(databaseName):
     #cursor.execute('SELECT * FROM Estimates', ())
     #df = DataFrame(cursor.fetchall())#, columns=['x_lift', 'y_lift', 'isLift'])
     df = read_sql_query('SELECT * FROM Estimates', conn)
-    param = json.load(open('projection.json'))   
-    p=Proj(param)
-    lon, lat = p(df['x_lift'].tolist(), df['y_lift'].tolist(), inverse=True)
+    param = json.load(open('.parameters/projection.json'))   
+    
+    source = osr.SpatialReference()
+    source.ImportFromEPSG(3067)
+
+    target = osr.SpatialReference()
+    target.ImportFromEPSG(4326)
+
+    p = osr.CoordinateTransformation(source, target)
+    
+    lon, lat = p.transformPoint(df['x_lift'].tolist(), df['y_lift'].tolist())
     df['Latitude']=lat 
     df['Longitude'] = lon
 
