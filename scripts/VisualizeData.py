@@ -55,7 +55,7 @@ def main(databaseName):
     #cursor.execute('SELECT * FROM Estimates', ())
     #df = DataFrame(cursor.fetchall())#, columns=['x_lift', 'y_lift', 'isLift'])
     df = read_sql_query('SELECT * FROM Estimates', conn)
-    param = json.load(open('.parameters/projection.json'))   
+    param = json.load(open('./parameters/projection.json'))   
     
     source = osr.SpatialReference()
     source.ImportFromEPSG(3067)
@@ -65,9 +65,16 @@ def main(databaseName):
 
     p = osr.CoordinateTransformation(source, target)
     
-    lon, lat = p.transformPoint(df['x_lift'].tolist(), df['y_lift'].tolist())
+    x_list = df['x_lift'].tolist()
+    y_list = df['y_lift'].tolist()
+    lon = []
+    lat = []
+    for i in range(len(x_list)):
+        c_lon, c_lat, z = p.TransformPoint(x_list[i], y_list[i])
+        lon.append(c_lon)
+        lat.append(c_lat)
     df['Latitude']=lat 
-    df['Longitude'] = lon
+    df['Longitude'] =lon
 
     fig = px.scatter_mapbox(df, lat="Latitude", lon="Longitude", color='isLift', hover_data=['Time','z','w_x','w_y','w_z'])
     fig.update_layout(mapbox_style="carto-positron")
@@ -97,6 +104,6 @@ def map_test():
 
 if __name__ == '__main__':
     databaseName = "database"
-    #main(databaseName)
+    main(databaseName)
     #map_test()
-    soil_data_test()
+    #soil_data_test()
